@@ -38,7 +38,7 @@ async function retrieveYouTubePlayer(videoId: string) {
 }
 
 async function main() {
-  const description = await retrieveDescriptionFromVideo("Lc1McFzS-CM");
+  const description = await retrieveDescriptionFromVideo("Rvj-o2fNFWk");
   const contributors = await ai(description);
   console.log(contributors);
 }
