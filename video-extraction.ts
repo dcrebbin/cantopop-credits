@@ -17,10 +17,13 @@ function getAiProvider(provider: string) {
 }
 
 export async function extractData(videoId: string, provider: string) {
-  const videoPath = `./downloads/${videoId}.mp4`;
+  let videoPath = `./downloads/${videoId}.mp4`;
   if (!(await fs.existsSync(videoPath))) {
-    console.log(`Video ${videoId} does not exist`);
-    return;
+    videoPath = `./downloads/${videoId}.webm`;
+    if (!(await fs.existsSync(videoPath))) {
+      console.log(`Video ${videoId} does not exist`);
+      return;
+    }
   }
 
   console.log(`Processing video: ${videoId}`);
