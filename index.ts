@@ -1,5 +1,6 @@
 import { openai } from "@ai-sdk/openai";
-import { generateText } from "ai";
+import { generateObject, generateText } from "ai";
+import z from "zod";
 
 async function retrieveDescriptionFromVideo(videoId: string) {
   const youtubePlayer: any = await retrieveYouTubePlayer(videoId);
@@ -39,11 +40,11 @@ async function retrieveYouTubePlayer(videoId: string) {
 
 async function main() {
   const description = await retrieveDescriptionFromVideo("Rvj-o2fNFWk");
-  const contributors = await ai(description);
+  const contributors = await generateJson(prompt, description);
   console.log(contributors);
 }
 
-const prompt = `Using the following text, extract the song and or music video contributors with their role and an array of the contributors in JSON format.
+const prompt = `Using the following text, extract the song and or music video contributors with their role and an array of the contributors in JSON format. Only output the JSON object and nothing else.
 <example>
 {
   "example role 1": ["example person 1", "example person 2", "example person 3"],
@@ -51,13 +52,13 @@ const prompt = `Using the following text, extract the song and or music video co
 }
 </example>`;
 
-async function ai(input: string) {
-  const { text } = await generateText({
+export async function generateJson(prompt: string, input: string) {
+  const { object } = await generateObject({
     model: openai("gpt-4.1-mini"),
     prompt: `${prompt} <text>${input}</text>`,
+    schema: z.object(),
   });
-  const jsonData = text.replace(/```json/g, "").replace(/```/g, "");
-  return JSON.parse(jsonData);
+  return object;
 }
 
 main();
