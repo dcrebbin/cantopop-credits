@@ -1,15 +1,26 @@
 # cantopop-credits
 
-To install dependencies:
+# Video Processing
 
-```bash
-bun install
-```
+This will download the video from YouTube and split it into image frames.
 
-To run:
+#### Args
 
-```bash
-bun run index.ts
-```
+--videoId="iYAtwuZXEC8" (optional - will process all videos if not provided)
 
-This project was created using `bun init` in bun v1.2.18. [Bun](https://bun.sh) is a fast all-in-one JavaScript runtime.
+e.g:
+
+`bun run video-processing.ts --videoId="iYAtwuZXEC8"`
+
+# Video Extraction
+
+This will extract the credits from the image frames using a given AI provider.
+
+#### Args
+
+--videoId="iYAtwuZXEC8" (optional - will extract all videos if not provided)
+--ai="openai" (openai or google)
+
+e.g:
+
+`bun run video-extraction.ts --videoId="iYAtwuZXEC8"`

@@ -142,40 +142,50 @@ async function processVideo(videoId: string) {
 }
 
 async function main() {
-  for (let i = 0; i < RAW_LOCATIONS.length; i++) {
-    const rawLocation = RAW_LOCATIONS[i];
-    if (!rawLocation) {
-      continue;
-    }
+  const args = process.argv.slice(2);
+  let videoId = "";
 
-    if (rawLocation.contributors !== undefined) {
-      continue;
-    }
+  if (args.find((arg) => arg.startsWith("--videoId="))) {
+    videoId =
+      args
+        .find((arg) => arg.startsWith("--videoId="))
+        ?.split("--videoId=")[1] ?? "";
+  }
 
-    const extracted = extractYouTubeId(rawLocation.url);
-    if (extracted === null) {
-      continue;
-    }
+  if (!videoId) {
+    for (let i = 0; i < RAW_LOCATIONS.length; i++) {
+      const rawLocation = RAW_LOCATIONS[i];
+      if (!rawLocation) {
+        continue;
+      }
 
-    const existingPath = resolveDownloadedFilePath(extracted);
+      if (rawLocation.contributors !== undefined) {
+        continue;
+      }
 
-    if (existingPath && (await fs.existsSync(existingPath))) {
-      console.log(`Video ${extracted} already exists`);
-      await processVideo(extracted);
-    } else {
-      try {
-        await downloadVideo(extracted);
+      const extracted = extractYouTubeId(rawLocation.url);
+      if (extracted === null) {
+        continue;
+      }
+
+      const existingPath = resolveDownloadedFilePath(extracted);
+
+      if (existingPath && (await fs.existsSync(existingPath))) {
+        console.log(`Video ${extracted} already exists`);
         await processVideo(extracted);
-      } catch (e) {
-        console.error(`Error processing video ${extracted}: ${e}`);
+      } else {
+        try {
+          await downloadVideo(extracted);
+          await processVideo(extracted);
+        } catch (e) {
+          console.error(`Error processing video ${extracted}: ${e}`);
+        }
       }
     }
+    return;
   }
+  await downloadVideo(videoId);
+  await processVideo(videoId);
 }
 
 main();
-//
-
-// await downloadVideo("AgEkYyeu3Jg");
-// await processVideo("AgEkYyeu3Jg");
-// extractData();
