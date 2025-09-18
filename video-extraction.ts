@@ -1,102 +1,89 @@
 import { openai } from "@ai-sdk/openai";
-import { generateObject, generateText } from "ai";
+import { generateText } from "ai";
 import { generateJson } from ".";
 import { RAW_LOCATIONS } from "./constants";
 import { extractYouTubeId } from "./utils";
 import fs from "node:fs";
 import z from "zod";
+import { google } from "@ai-sdk/google";
 
 const prompt = ``;
 
-export async function extractData() {
-  const mainStartTime = new Date();
-  for (let i = 0; i < 1; i++) {
-    // const rawLocation = RAW_LOCATIONS[i];
-    // // if (!rawLocation || rawLocation.contributors !== undefined) {
-    // //   continue;
-    // // }
-    // const videoId = extractYouTubeId(rawLocation?.url ?? "") ?? "";
+function getAiProvider(provider: string) {
+  if (provider === "openai") {
+    return openai("gpt-4.1-mini");
+  }
+  return google("gemini-2.5-flash");
+}
 
-    // if (!videoId) {
-    //   continue;
-    // }
+export async function extractData(videoId: string, provider: string) {
+  const videoPath = `./downloads/${videoId}.mp4`;
+  if (!(await fs.existsSync(videoPath))) {
+    console.log(`Video ${videoId} does not exist`);
+    return;
+  }
 
-    const videoId = "AgEkYyeu3Jg";
+  console.log(`Processing video: ${videoId}`);
 
-    const videoPath = `./downloads/${videoId}.mp4`;
-    if (!(await fs.existsSync(videoPath))) {
-      console.log(`Video ${videoId} does not exist`);
+  fs.mkdirSync(`./data/${videoId}/data`, { recursive: true });
+
+  for (let i = 1; i < 13; i++) {
+    const startTime = new Date();
+
+    const imagePath = `./downloads/${videoId}_frames/${i}.jpg`;
+    if (!(await fs.existsSync(imagePath))) {
+      console.log(`Image ${i} does not exist`);
       continue;
     }
 
-    console.log(`Processing video: ${videoId}`);
+    const imageBuffer = await fs.readFileSync(imagePath);
 
-    fs.mkdirSync(`./data/${videoId}/data`, { recursive: true });
-
-    for (let i = 1; i < 13; i++) {
-      const startTime = new Date();
-
-      const imagePath = `./downloads/${videoId}_frames/${i}.jpg`;
-      if (!(await fs.existsSync(imagePath))) {
-        console.log(`Image ${i} does not exist`);
-        continue;
-      }
-
-      const imageBuffer = await fs.readFileSync(imagePath);
-
-      const { text } = await generateText({
-        model: openai("gpt-4.1-mini"),
-        messages: [
-          {
-            role: "user",
-            content: [
-              {
-                type: "text",
-                text: `Extract the text and convert it into a json object. Ensure the keys are in camelCase. If the text is not clear/too dim, return an empty object with nothing else. If you cannot find any text, return an empty object with nothing else. ONLY RETURN JSON.
+    const { text } = await generateText({
+      model: getAiProvider(provider),
+      messages: [
+        {
+          role: "user",
+          content: [
+            {
+              type: "text",
+              text: `Extract the text and convert it into a json object. Ensure the keys are in camelCase. If the text is not clear/too dim, return an empty object with nothing else. If you cannot find any text, return an empty object with nothing else. ONLY RETURN JSON.
   <example>
   {
     "exampleRole1": ["example person 1", "example person 2", "example person 3"],
     "exampleRole2": ["example person 1"],
   }
   </example>`,
-              },
-              {
-                image: imageBuffer,
-                type: "image",
-              },
-            ],
-          },
-        ],
-      });
+            },
+            {
+              image: imageBuffer,
+              type: "image",
+            },
+          ],
+        },
+      ],
+    });
 
-      const cleanedText = text.replace(/```json\n|```/g, "");
-      const object = JSON.parse(cleanedText);
-      //create the directory if it doesn't exist
+    const cleanedText = text.replace(/```json\n|```/g, "");
+    const object = JSON.parse(cleanedText);
+    //create the directory if it doesn't exist
 
-      await fs.writeFileSync(
-        `./data/${videoId}/data/${i}.json`,
-        JSON.stringify(object, null, 2)
-      );
-      const endTime = new Date();
-      console.log(`Time taken: ${endTime.getTime() - startTime.getTime()}ms`);
-    }
-    const collatedData = await collateData(videoId);
     await fs.writeFileSync(
-      `./data/${videoId}/data/collated.json`,
-      JSON.stringify(collatedData, null, 2)
+      `./data/${videoId}/data/${i}.json`,
+      JSON.stringify(object, null, 2)
     );
-
-    const cleanedData = await generateJson(
-      prompt,
-      JSON.stringify(collatedData)
-    );
-    console.log(cleanedData);
+    const endTime = new Date();
+    console.log(`Time taken: ${endTime.getTime() - startTime.getTime()}ms`);
   }
-  const endTime = new Date();
-  console.log(
-    `Total time taken: ${endTime.getTime() - mainStartTime.getTime()}ms`
+  const collatedData = await collateData(videoId);
+  await fs.writeFileSync(
+    `./data/${videoId}/data/collated.json`,
+    JSON.stringify(collatedData, null, 2)
   );
+
+  const cleanedData = await generateJson(prompt, JSON.stringify(collatedData));
+  console.log(cleanedData);
 }
+
 async function collateData(videoId: string) {
   const data: Record<string, string[]> = {};
   for (let i = 1; i < 13; i++) {
@@ -110,16 +97,13 @@ async function collateData(videoId: string) {
       try {
         parsed = JSON.parse(content);
       } catch {
-        // Malformed JSON; skip this frame
         continue;
       }
 
       if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-        // Unexpected shape; skip
         continue;
       }
 
-      // Merge the parsed data into the main data object
       for (const [role, contributors] of Object.entries(
         parsed as Record<string, unknown>
       )) {
@@ -135,17 +119,14 @@ async function collateData(videoId: string) {
           const normalized = contributors.trim();
           if (normalized) contributorList = [normalized];
         } else {
-          // Unsupported value; skip
           continue;
         }
 
         if (contributorList.length === 0) continue;
 
         if (data[role]) {
-          // If role already exists, combine the arrays and remove duplicates
           data[role] = [...new Set([...data[role], ...contributorList])];
         } else {
-          // If role doesn't exist, add it
           data[role] = [...new Set(contributorList)];
         }
       }
@@ -172,4 +153,36 @@ async function collateData(videoId: string) {
   return data;
 }
 
-extractData();
+function main() {
+  const args = process.argv.slice(2);
+
+  let aiProvider = "openai";
+  let videoId = "";
+
+  for (const arg of args) {
+    if (arg.startsWith("--ai=")) {
+      aiProvider = arg.split("--ai=")[1] ?? "openai";
+    } else if (arg.startsWith("--videoId=")) {
+      videoId = arg.split("--videoId=")[1] ?? "";
+    }
+  }
+
+  if (!videoId) {
+    for (let i = 0; i < 1; i++) {
+      const rawLocation = RAW_LOCATIONS[i];
+      if (!rawLocation || rawLocation.contributors !== undefined) {
+        continue;
+      }
+      const videoId = extractYouTubeId(rawLocation?.url ?? "") ?? "";
+
+      if (!videoId) {
+        continue;
+      }
+      extractData(videoId, aiProvider);
+    }
+    return;
+  }
+  extractData(videoId, aiProvider);
+}
+
+main();
