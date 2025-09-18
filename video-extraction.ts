@@ -30,7 +30,11 @@ export async function extractData(videoId: string, provider: string) {
 
   fs.mkdirSync(`./data/${videoId}/data`, { recursive: true });
 
-  for (let i = 1; i < 13; i++) {
+  const totalFrames = await fs.readdirSync(`./downloads/${videoId}_frames`)
+    .length;
+
+  for (let i = 1; i < totalFrames + 1; i++) {
+    console.log(`Processing frame ${i} of ${totalFrames}`);
     const startTime = new Date();
 
     const imagePath = `./downloads/${videoId}_frames/${i}.jpg`;
@@ -66,6 +70,7 @@ export async function extractData(videoId: string, provider: string) {
       ],
     });
 
+    console.log(text);
     const cleanedText = text.replace(/```json\n|```/g, "");
     const object = JSON.parse(cleanedText);
     //create the directory if it doesn't exist
