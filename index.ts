@@ -1,5 +1,5 @@
 import { openai } from "@ai-sdk/openai";
-import { generateObject, generateText } from "ai";
+import { generateObject } from "ai";
 import z from "zod";
 
 async function retrieveDescriptionFromVideo(videoId: string) {

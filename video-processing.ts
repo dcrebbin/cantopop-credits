@@ -62,16 +62,17 @@ async function downloadVideo(videoId: string) {
 
   const args = [
     "--verbose",
-    // "--cookies-from-browser",
-    // "brave",
+    "--cookies-from-browser",
+    "brave",
     // "--geo-bypass",
     // "--geo-bypass-country",
     // "US",
     "--download-sections",
     `*${startSeconds}-`,
-    "-f",
+    // "-f",
+    // "bv",
     // "625",
-    "--list-formats",
+    // "--list-formats",
     // "--extractor-args",
     // "youtube:player_client=ios",
     "-o",
@@ -88,28 +89,6 @@ async function downloadVideo(videoId: string) {
   if (exitCode !== 0) {
     throw new Error(`yt-dlp exited with code ${exitCode}`);
   }
-
-  // //trim video with ffmpeg
-  // const ffmpegArgs = [
-  //   "-y",
-  //   "-sseof",
-  //   "-15",
-  //   "-t",
-  //   "15",
-  //   "-i",
-  //   `./downloads/${videoId}.mp4`,
-  //   `./downloads/${videoId}_trimmed.mp4`,
-  // ];
-
-  // const proc2 = Bun.spawn(["ffmpeg", ...ffmpegArgs], {
-  //   stdout: "inherit",
-  //   stderr: "inherit",
-  // });
-
-  // const exitCode2 = await proc2.exited;
-  // if (exitCode2 !== 0) {
-  //   throw new Error(`ffmpeg exited with code ${exitCode}`);
-  // }
 }
 
 async function processVideo(videoId: string) {
@@ -129,16 +108,25 @@ async function processVideo(videoId: string) {
 
   await mkdir(outputDir, { recursive: true });
 
+  let videoPath = `./downloads/${videoId}.webm`;
+  if (!(await fs.existsSync(videoPath))) {
+    videoPath = `./downloads/${videoId}.mp4`;
+
+    if (!(await fs.existsSync(videoPath))) {
+      throw new Error(`Video ${videoId} does not exist`);
+    }
+  }
+
   const ffmpegArgs = [
     "-y",
     "-sseof",
-    "-15",
+    "-20",
     "-t",
-    "15",
+    "20",
     "-i",
-    `./downloads/${videoId}_trimmed.mp4`,
+    videoPath,
     "-vf",
-    "fps=0.8",
+    "fps=1",
     `${outputDir}/%01d.jpg`,
   ];
 
@@ -159,13 +147,14 @@ async function main() {
     if (!rawLocation) {
       continue;
     }
-    //check if the video has already been downloaded
+
+    if (rawLocation.contributors !== undefined) {
+      continue;
+    }
+
     const extracted = extractYouTubeId(rawLocation.url);
     if (extracted === null) {
       continue;
-    }
-    if (extracted === "u14rrcxENDw") {
-      console.log(`${extracted}, ${rawLocation}`);
     }
 
     const existingPath = resolveDownloadedFilePath(extracted);
@@ -184,9 +173,9 @@ async function main() {
   }
 }
 
-// main();
+main();
 //
 
-await downloadVideo("AgEkYyeu3Jg");
+// await downloadVideo("AgEkYyeu3Jg");
 // await processVideo("AgEkYyeu3Jg");
 // extractData();

@@ -172,4 +172,4 @@ async function collateData(videoId: string) {
   return data;
 }
 
-// main();
+extractData();
