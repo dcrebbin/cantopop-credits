@@ -1,13 +1,11 @@
 import { openai } from "@ai-sdk/openai";
 import { generateText } from "ai";
-import { generateJson } from ".";
 import { RAW_LOCATIONS } from "./constants";
 import { extractYouTubeId } from "./utils";
 import fs from "node:fs";
-import z from "zod";
 import { google } from "@ai-sdk/google";
 
-const prompt = ``;
+const prompt = `Update the following object to put all song related roles (arranger, mastering, vocals, composition etc) into a song object and everything else that could be music video related into the musicVideo object. Ensure there are no duplicates in the arrays. Return as a JSON file.`;
 
 function getAiProvider(provider: string) {
   if (provider === "openai") {
@@ -17,6 +15,7 @@ function getAiProvider(provider: string) {
 }
 
 export async function extractData(videoId: string, provider: string) {
+  const startTimeOg = new Date();
   let videoPath = `./downloads/${videoId}.mp4`;
   if (!(await fs.existsSync(videoPath))) {
     videoPath = `./downloads/${videoId}.webm`;
@@ -80,6 +79,7 @@ export async function extractData(videoId: string, provider: string) {
       JSON.stringify(object, null, 2)
     );
     const endTime = new Date();
+
     console.log(`Time taken: ${endTime.getTime() - startTime.getTime()}ms`);
   }
   const collatedData = await collateData(videoId);
@@ -88,8 +88,27 @@ export async function extractData(videoId: string, provider: string) {
     JSON.stringify(collatedData, null, 2)
   );
 
-  const cleanedData = await generateJson(prompt, JSON.stringify(collatedData));
-  console.log(cleanedData);
+  const { text: cleanedData } = await generateText({
+    model: getAiProvider(provider),
+    messages: [
+      {
+        role: "user",
+        content: prompt,
+      },
+      {
+        role: "user",
+        content: JSON.stringify(collatedData),
+      },
+    ],
+  });
+  await fs.writeFileSync(
+    `./data/${videoId}/data/cleaned.json`,
+    cleanedData.replace(/```json\n|```/g, "")
+  );
+  const endTimeOg = new Date();
+  console.log(
+    `Total Time taken: ${endTimeOg.getTime() - startTimeOg.getTime()}ms`
+  );
 }
 
 async function collateData(videoId: string) {
